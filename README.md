@@ -69,6 +69,18 @@ This design facilitates the direct application of trained models on actual visua
 
 The core C++ inference logic is exposed to Python via `pybind11`. For detailed Python usage examples, including single-image inference and optimised batch inference, please refer to [`inference_demo.py`](inference_demo.py).
 
+## Versions
+
+
+* **v1.1.0 (Current Release)**
+    * **Key Features:** Introduces the high-performance **hybrid Python-C++ inference module** via Pybind11, supporting both single-image and optimised batch inference.
+    * **Integration:** Establishes automated CI/CD pipelines using GitHub Actions for build and test verification of the hybrid system.
+    * **Documentation:** Comprehensive updates across the `README.md` and `src/cpp/README_integration.md` for clarity and usage guidance.
+
+* **v1.0.0 (Initial Standalone C++ Inference Release)**
+    * **Key Features:** Initial release providing a standalone C++ application for model inference using ONNX Runtime.
+    * **Note:** This functionality is now considered [legacy](#legacy-standalone-c-inference-module) and is maintained on the `feature/cpp-inference` branch for historical reference.
+
 
 ## Continuous Integration / Continuous Deployment (CI/CD)
 
@@ -83,16 +95,3 @@ This project leverages Continuous Integration (CI) using **GitHub Actions** to e
 
 
 You can view the status of recent CI runs and detailed logs on the [GitHub Actions page for this repository](https://github.com/AMzaheri/simulated-av-lane-assist/actions).
-
-## Versions
-
-
-* **v1.1.0 (Current Release)**
-    * **Key Features:** Introduces the high-performance **hybrid Python-C++ inference module** via Pybind11, supporting both single-image and optimised batch inference.
-    * **Integration:** Establishes automated CI/CD pipelines using GitHub Actions for build and test verification of the hybrid system.
-    * **Documentation:** Comprehensive updates across the `README.md` and `src/cpp/README_integration.md` for clarity and usage guidance.
-
-* **v1.0.0 (Initial Standalone C++ Inference Release)**
-    * **Key Features:** Initial release providing a standalone C++ application for model inference using ONNX Runtime.
-    * **Note:** This functionality is now considered [legacy](#legacy-standalone-c-inference-module) and is maintained on the `feature/cpp-inference` branch for historical reference.
-
