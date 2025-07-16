@@ -79,7 +79,7 @@ The core C++ inference logic is exposed to Python via `pybind11`. For detailed P
 
 * **v1.0.0 (Initial Standalone C++ Inference Release)**
     * **Key Features:** Initial release providing a standalone C++ application for model inference using ONNX Runtime.
-    * **Note:** This functionality is now considered [legacy](#legacy-standalone-c-inference-module) and is maintained on the `feature/cpp-inference` branch for historical reference.
+    * **Note:** This functionality is now considered legacy and is maintained on the `feature/cpp-inference` branch for historical reference.
 
 
 ## Continuous Integration / Continuous Deployment (CI/CD)
