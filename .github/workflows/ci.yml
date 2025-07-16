@@ -3,7 +3,7 @@ name: Hybrid C++/Python CI
 on:
   push:
     branches:
-      - feature-integration # This workflow runs on pushes to integration branch
+      - feature/pybind11-integration  # This workflow runs on pushes to integration branch
       - dev               # Also run when changes are pushed to the 'dev' branch
   pull_request:
     branches:
