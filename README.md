@@ -6,16 +6,17 @@ A simulated autonomous driving project implementing a lane-keeping assistant usi
 ```
 ├── .gitignore
 ├── README.md
-├── app/
 ├── data/
-├── docs/
+│      └──test_images/
 ├── models/
 └── src/
 │     ├── cpp/
 │     └── python/
 ├── third_party/        <-- Contains external dependencies like ONNX Runtime
-    ├── cpp/
-    └── python/
+├── CMakeLists.txt      <-- Top-level CMake configuration for building the project
+├── inference_demo.py       # Python script demonstrating C++ inference (single & batch)
+├── pybind11/               # Git submodule for Pybind11 library (used for C++ to Python bindings)
+
 ```
 
 ## Dataset
@@ -35,35 +36,35 @@ For a detailed explanation of the data generation process, including the specifi
 The deep learning model was trained and evaluated on a dedicated Kaggle notebook: [Deep Learning for Simulated Driving](https://www.kaggle.com/code/afsanehm/deep-learning-for-simulated-driving). The trained model checkpoints (including the best-performing version) are accessible within this repository in the `models/` directory.
 
 
-## C++ Inference Module
+## C++ Inference Module (Hybrid Python-C++ Integration)
 
-For high-performance model deployment, a C++ inference module has been developed. This module leverages **ONNX Runtime (v1.17.1)** to load and execute pre-trained ONNX models, such as the PilotNet for lane keeping.
+This project's core objective is to demonstrate a hybrid Python-C++ architecture for high-performance AI model deployment. The C++ inference module is specifically designed for integration into Python-based workflows, leveraging **ONNX Runtime (v1.17.1)** for efficient model execution and **Pybind11** for creating the necessary Python bindings.
 
-Fo setup, build, and run instructions for the C++ inference application, please refer to its detailed documentation:
-[**`src/cpp/README_inference.md`**](src/cpp/README_inference.md)
+This approach combines Python's flexibility for data handling and scripting with C++'s raw speed for computation-heavy inference, making it ideal for real-time autonomous driving applications.
 
-### Real Image Inference
+**For detailed setup, build, and usage instructions for the C++ Python Integration Module, please refer to:**
+[**`src/cpp/README_integration.md`**](src/cpp/README_integration.md)
 
-The C++ module includes functionalities for:
-* Loading images from file.
-* Preprocessing steps such as resizing, grayscale conversion, and normalisation, tailored to the model's input requirements.
-* Feeding the processed image data directly into the ONNX model for inference.
+**Note:** If you are looking for the standalone C++ executable inference examples (e.g., `lane_keeping_test_inference`, `lane_keeping_real_inference`) without Python integration, please refer to the `feature/cpp_inference` branch of [this repository](https://github.com/AMzaheri/simulated-av-lane-assist/blob/feature/cpp-inference/src/cpp/README_inference.md)
 
-This allows for direct application of the trained models on actual visual inputs. **This enables a robust and performant pathway for integrating the AI model into real-time or embedded systems.**
+### Key Inference Capabilities (via Python)
 
-## Continuous Integration / Continuous Deployment (CI/CD)
+The C++ module, fully accessible from Python, provides advanced functionalities for real-world image inference:
 
-This project uses GitHub Actions to implement Continuous Integration (CI) for its C++ components, code quality and build reliability.
+* **Flexible Image Loading & Preprocessing:**
+    * Loads images from specified file paths.
+    * Applies essential preprocessing steps (resizing, grayscale conversion, normalization) tailored to the model's input requirements.
+* **Efficient Model Execution:**
+    * Feeds processed image data directly into the ONNX model for high-speed inference.
+* **Single-Image Inference:**
+    * Provides a direct method to get a steering angle prediction for one image at a time.
+* **Batch Inference from Directory (Optimized):**
+    * Efficiently processes multiple images from a specified directory in configurable batches. This leverages the model's dynamic batching capability, running a single ONNX Runtime session for an entire group of images, significantly boosting throughput for large datasets.
 
-### Key Aspects:
-* **Automated Builds:** Every push to key branches (like `main` , `dev` and `feature/cpp-inference`) automatically triggers a build process. This compiles the C++ inference executables (`lane_keeping_test_inference` and `lane_keeping_real_inference`) on an Ubuntu Linux environment.
-* **Dependency Management:** The CI pipeline handles the automatic installation of important dependencies such as CMake, build-essential tools, OpenCV, and the ONNX Runtime for Linux (x64).
-* **Automated Testing/Verification:** After a successful build, the pipeline attempts to run the `lane_keeping_test_inference` executable, providing immediate feedback on its runnability and basic functionality.
-* **Cross-Platform Verification:** While development might occur on various operating systems (e.g., macOS), the CI environment consistently builds and tests on Linux, mimicking common deployment environments.
+This design facilitates the direct application of trained models on actual visual inputs, enabling a performant pathway for integrating the AI model into real-time or embedded systems.
 
-### Build Status:
-You can view the current CI/CD pipeline status and detailed build logs by clicking on the badge below or visiting the [Actions tab](https://github.com/AMzaheri/simulated-av-lane-assist/actions) of this repository.
+### How to Use
 
-[![CI Build Status](https://github.com/AMzaheri/simulated-av-lane-assist/workflows/C%2B%2B%20Build%20and%20Test/badge.svg)](https://github.com/AMzaheri/simulated-av-lane-assist/actions)
+The core C++ inference logic is exposed to Python via `pybind11`. For detailed Python usage examples, including single-image inference and optimised batch inference, please refer to [`inference_demo.py`](inference_demo.py).
 
----
+
