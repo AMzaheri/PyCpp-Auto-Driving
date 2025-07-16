@@ -68,3 +68,16 @@ This design facilitates the direct application of trained models on actual visua
 The core C++ inference logic is exposed to Python via `pybind11`. For detailed Python usage examples, including single-image inference and optimised batch inference, please refer to [`inference_demo.py`](inference_demo.py).
 
 
+## Continuous Integration / Continuous Deployment (CI/CD)
+
+This project leverages Continuous Integration (CI) using **GitHub Actions** to ensure the quality, stability, and consistent functionality of the hybrid Python-C++ inference module. The CI pipeline automates the build and test process, providing immediate feedback on any code changes.
+
+**The CI workflow performs the following key steps on every push to the `feature-integration` (and later `dev` and `main`) branches, as well as on relevant Pull Requests:**
+
+1.  **Environment Setup:** Configures a consistent Linux environment with necessary C++ build tools (CMake, compiler, OpenCV) and Python.
+2.  **Dependency Management:** Downloads and sets up the correct ONNX Runtime binaries for the runner's architecture, and initialises Git submodules (like Pybind11).
+3.  **C++ Module Build:** Compiles the C++ inference module, generating the Python-callable shared library (`cpp_inference.so` or `.pyd`).
+4.  **Integration Test:** Executes the `inference_demo.py` script, which imports the compiled C++ module and runs both single-image and batch inference tests. This crucial step verifies that the C++ code compiles, the Python bindings work correctly, and the entire hybrid setup functions as expected.
+
+
+You can view the status of recent CI runs and detailed logs on the [GitHub Actions page for this repository](https://github.com/AMzaheri/simulated-av-lane-assist/actions).
