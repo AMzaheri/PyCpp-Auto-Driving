@@ -1,0 +1,77 @@
+name: Hybrid C++/Python CI
+
+on:
+  push:
+    branches:
+      - feature-integration # This workflow runs on pushes to integration branch
+      - dev               # Also run when changes are pushed to the 'dev' branch
+  pull_request:
+    branches:
+      - dev               # Run when pull requests are opened against 'dev'
+      - main              # Optional: Run when pull requests are opened against 'main'
+
+jobs:
+  build-and-test:
+    runs-on: ubuntu-latest # Using a fresh Ubuntu environment for the CI runner
+
+    steps:
+    - name: Checkout Repository
+      uses: actions/checkout@v4
+      with:
+        submodules: true # Important: Ensure submodules (like Pybind11) are checked out
+
+    - name: Update Submodules (explicitly, for robustness)
+      run: git submodule update --init --recursive
+
+    - name: Install C++ Build Dependencies (Ubuntu)
+      # Install CMake, a C++ compiler (build-essential), OpenCV development libraries, and wget
+      run: |
+        sudo apt-get update
+        sudo apt-get install -y cmake build-essential libopencv-dev wget
+
+    - name: Download and Setup ONNX Runtime
+      run: |
+        ONNX_RUNTIME_VERSION="1.17.1"
+        ONNX_RUNTIME_ARCH="x64" # For Linux x64 runner (ubuntu-latest)
+        ONNX_RUNTIME_URL="https://github.com/microsoft/onnxruntime/releases/download/v${ONNX_RUNTIME_VERSION}/onnxruntime-linux-${ONNX_RUNTIME_ARCH}-${ONNX_RUNTIME_VERSION}.tgz"
+        
+        echo "Creating third_party directory if it doesn't exist..."
+        mkdir -p third_party
+        
+        echo "Downloading ONNX Runtime from: ${ONNX_RUNTIME_URL}"
+        # Use --show-progress and redirect stderr to tee for visible progress without verbose logging
+        wget --progress=bar:force:noscroll -q ${ONNX_RUNTIME_URL} -O third_party/onnxruntime.tgz 2>&1 | tee /dev/null
+
+        echo "Extracting ONNX Runtime to third_party/..."
+        # Extract contents directly into third_party/
+        tar -xzf third_party/onnxruntime.tgz -C third_party/ --strip-components=1 
+        echo "ONNX Runtime setup complete."
+
+    - name: Setup Python
+      uses: actions/setup-python@v5 # Action to set up Python
+      with:
+        python-version: '3.9.21'
+
+    # Any othera requirements.txt for other Python packages? uncomment and use this step:
+    # - name: Install Python Dependencies
+    #   run: |
+    #     pip install --upgrade pip
+    #     pip install -r requirements.txt
+
+    - name: Create Build Directory
+      run: mkdir build
+
+    - name: Configure CMake
+      # CMake will now find ONNX Runtime directly in third_party/ after extraction by the previous step.
+      run: cmake -B build -S .
+
+    - name: Build C++ Python Module
+      run: cmake --build build -j$(nproc) # -j$(nproc) uses all available CPU cores for faster build
+
+    - name: Set PYTHONPATH for C++ Module
+      # This adds the build directory (where cpp_inference.so is) to the PYTHONPATH
+      # so Python can find and import it.
+      run: echo "PYTHONPATH=$PYTHONPATH:$GITHUB_WORKSPACE/build" >> $GITHUB_ENV
+
+    - name: Run Python Inference Demo
+      run: python inference_demo.py
