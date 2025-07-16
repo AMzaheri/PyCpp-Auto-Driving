@@ -1,4 +1,4 @@
-# simulated-av-lane-assist
+# PyCpp Auto-Driving
 [![CI Build Status](https://github.com/AMzaheri/simulated-av-lane-assist/actions/workflows/ci.yml/badge.svg)](https://github.com/AMzaheri/simulated-av-lane-assist/actions/workflows/ci.yml)
 
 A simulated autonomous driving project implementing a lane-keeping assistant using a hybrid Python-C++ architecture with MLOps principles.
