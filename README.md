@@ -95,3 +95,34 @@ This project leverages Continuous Integration (CI) using **GitHub Actions** to e
 
 
 You can view the status of recent CI runs and detailed logs on the [GitHub Actions page for this repository](https://github.com/AMzaheri/simulated-av-lane-assist/actions).
+
+## Deployment
+
+This section outlines how to deploy and run the `pycpp-auto-driving` inference system. Our approach prioritizes containerization with Docker for reproducible environments, paving the way for future cloud integration.
+
+### Prerequisites
+
+* **Docker Desktop** (or Docker Engine on Linux) installed and running.
+
+### Running Locally with Docker
+
+To get the inference system running on your local machine using Docker:
+
+#### 1. Building the Docker Image
+
+Navigate to the root directory of the project (where the `Dockerfile` and `.dockerignore` are located) and run the following command to build the Docker image:
+
+```bash
+docker build -t pycpp-auto-driving:v1.1.0 .
+```
+ 
+This command builds the Docker image, bundling all necessary code and dependencies, and tags it as `pycpp-auto-driving:v1.1.0`.
+
+#### 2. Running the Application
+Once the image is built, you can run your main inference script (`inference_demo.py`) inside a container:
+
+```bash
+docker run pycpp-auto-driving:v1.1.0 python3 inference_demo.py
+```
+(Once inside, you can navigate to /app and execute scripts like `python3 inference_demo.py`).
+
