@@ -19,32 +19,36 @@ if(OpenCV_FOUND)
 else()
     message(FATAL_ERROR "OpenCV not found! Please ensure it's installed and findable by CMake.")
 endif()
-# --- End OpenCV Configuration ---
 
 # --- ONNX Runtime Configuration ---
-set(ONNXRUNTIME_BASE_DIR "${CMAKE_CURRENT_SOURCE_DIR}/../../third_party")
-set(ONNXRUNTIME_VERSION_SUBDIR "onnxruntime-osx-arm64-1.17.1")
-
-if (EXISTS "${ONNXRUNTIME_BASE_DIR}/${ONNXRUNTIME_VERSION_SUBDIR}/include/onnxruntime_cxx_api.h")
-    set(ONNXRUNTIME_INSTALL_PATH "${ONNXRUNTIME_BASE_DIR}/${ONNXRUNTIME_VERSION_SUBDIR}")
-    message(STATUS "Found ONNX Runtime in version-specific subfolder: ${ONNXRUNTIME_VERSION_SUBDIR}")
+# Prioritize ONNXRUNTIME_HOME environment variable for build environments (like Docker/CI)
+if (DEFINED ENV{ONNXRUNTIME_HOME} AND IS_DIRECTORY "$ENV{ONNXRUNTIME_HOME}")
+    set(ONNXRUNTIME_INSTALL_PATH "$ENV{ONNXRUNTIME_HOME}")
+    message(STATUS "Found ONNX Runtime via ONNXRUNTIME_HOME: ${ONNXRUNTIME_INSTALL_PATH}")
+# Fallback for local macOS development if ONNXRUNTIME_HOME is not set
+elseif (EXISTS "${CMAKE_CURRENT_SOURCE_DIR}/../../third_party/onnxruntime-osx-arm64-1.17.1/include/onnxruntime_cxx_api.h")
+    set(ONNXRUNTIME_INSTALL_PATH "${CMAKE_CURRENT_SOURCE_DIR}/../../third_party/onnxruntime-osx-arm64-1.17.1")
+    message(STATUS "Found ONNX Runtime in macOS version-specific subfolder (Host).")
+# Final fallback: assume it's directly in third_party (e.g., if extracted via --strip-components=1)
 else()
-    set(ONNXRUNTIME_INSTALL_PATH "${ONNXRUNTIME_BASE_DIR}")
-    message(STATUS "Found ONNX Runtime directly in third_party folder (likely CI setup).")
+    set(ONNXRUNTIME_INSTALL_PATH "${CMAKE_CURRENT_SOURCE_DIR}/../../third_party")
+    message(STATUS "Found ONNX Runtime directly in third_party folder (likely Linux Docker/CI setup).")
 endif()
 
+# Find the ONNX Runtime library using the determined installation path
 find_library(ONNXRUNTIME_LIB
     NAMES onnxruntime
     PATHS "${ONNXRUNTIME_INSTALL_PATH}/lib"
-    NO_DEFAULT_PATH
+    NO_DEFAULT_PATH # Crucial: only search specified PATHS, not system default ones
 )
+
+# Report if the library was found or not
 if(NOT ONNXRUNTIME_LIB)
-    message(FATAL_ERROR "ONNX Runtime library not found at ${ONNXRUNTIME_INSTALL_PATH}/lib")
+    message(FATAL_ERROR "ONNX Runtime library 'onnxruntime' not found at ${ONNXRUNTIME_INSTALL_PATH}/lib")
 else()
     message(STATUS "ONNX Runtime library found at: ${ONNXRUNTIME_LIB}")
 endif()
 # --- End ONNX Runtime Configuration ---
-
 
 # These lines are from inference syep
 # Add executables for source files (e.g., src/cpp/inference_test.cpp)

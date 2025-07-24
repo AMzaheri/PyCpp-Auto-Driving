@@ -1,0 +1,3 @@
+# .dockerignore
+# Exclude pre-downloaded ONNX Runtime binaries from the host to avoid conflicts
+third_party/onnxruntime-osx-arm64-1.17.1/
