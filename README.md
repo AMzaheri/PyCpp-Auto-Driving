@@ -18,7 +18,9 @@ A simulated autonomous driving project implementing a lane-keeping assistant usi
 ├── CMakeLists.txt      <-- Top-level CMake configuration for building the project
 ├── inference_demo.py       # Python script demonstrating C++ inference (single & batch)
 ├── pybind11/               # Git submodule for Pybind11 library (used for C++ to Python bindings)
-
+├── Dockerfile              # Specifies files and directories to exclude from the Docker build context               
+├── .dockerignore               
+├── requirements.txt        # Lists all Python dependencies for the project, used during Docker image build.
 ```
 
 ## Dataset
@@ -98,7 +100,7 @@ You can view the status of recent CI runs and detailed logs on the [GitHub Actio
 
 ## Deployment
 
-This section outlines how to deploy and run the `pycpp-auto-driving` inference system. Our approach prioritizes containerization with Docker for reproducible environments, paving the way for future cloud integration.
+This section outlines how to deploy and run the `pycpp-auto-driving` inference system. Our approach prioritises containerization with Docker for reproducible environments, paving the way for future cloud integration.
 
 ### Prerequisites
 
@@ -125,4 +127,5 @@ Once the image is built, you can run your main inference script (`inference_demo
 docker run pycpp-auto-driving:v1.1.0 python3 inference_demo.py
 ```
 (Once inside, you can navigate to /app and execute scripts like `python3 inference_demo.py`).
+
 
