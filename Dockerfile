@@ -1,75 +1,90 @@
-# Dockerfile
+# Stage 1: Build C++ components and download ONNX Runtime for AMD64
+FROM ubuntu:22.04 AS builder
 
-# Use a base Ubuntu image. It's robust for C++ builds and allows easy installation of Python.
-FROM ubuntu:22.04
-
-# Set environment variables for non-interactive apt-get installs and unbuffered Python output
+# Set environment variables for non-interactive installation
 ENV DEBIAN_FRONTEND=noninteractive
-ENV PYTHONUNBUFFERED=1
 
-# Set the working directory inside the container. All subsequent commands will run from here.
-WORKDIR /app
-
-# Install system dependencies:
+# Update and install build dependencies
 RUN apt-get update && \
     apt-get install -y --no-install-recommends \
-    build-essential \
-    cmake \
-    libopencv-dev \
-    python3 \
-    python3-pip \
-    # Add python3-dev for Python development headers and static libraries
-    python3-dev \
-    wget \
-    ca-certificates && \
-    rm -rf /var/lib/apt/lists/*
+        build-essential \
+        cmake \
+        git \
+        wget \
+        unzip \
+        python3 \
+        python3-pip \
+        libopencv-dev \
+        libboost-all-dev \
+    && rm -rf /var/lib/apt/lists/*
 
-# --- ONNX Runtime Setup ---
-# This step downloads and extracts ONNX Runtime directly into the container.
-# This ensures the correct Linux x64 version is always used, independent of the local host.
-ARG ONNX_RUNTIME_VERSION="1.17.1"
-#ARG ONNX_RUNTIME_ARCH="x64" # We are on an x64 Linux base image (ubuntu:22.04)
-ARG ONNX_RUNTIME_ARCH="aarch64"
+# Install pybind11
+WORKDIR /
+RUN git clone https://github.com/pybind/pybind11.git && \
+    cd pybind11 && \
+    pip install .
 
-RUN echo "Downloading ONNX Runtime v${ONNX_RUNTIME_VERSION} for Linux-${ONNX_RUNTIME_ARCH}..." && \
-    wget -q https://github.com/microsoft/onnxruntime/releases/download/v${ONNX_RUNTIME_VERSION}/onnxruntime-linux-${ONNX_RUNTIME_ARCH}-${ONNX_RUNTIME_VERSION}.tgz -O /tmp/onnxruntime.tgz && \
-    mkdir -p third_party && \
-    tar -xzf /tmp/onnxruntime.tgz -C third_party/ --strip-components=1 && \
-    rm /tmp/onnxruntime.tgz && \
-    echo "ONNX Runtime setup complete."
+# Create the application directory and copy source files for C++ build
+WORKDIR /app
+COPY src /app/src
+COPY CMakeLists.txt /app/
+COPY third_party/include /app/third_party/include
 
-# Set ONNXRUNTIME_HOME to the directory where ONNX Runtime was extracted.
-# CMake's find_package(ONNXRuntime) often uses this hint.
-ENV ONNXRUNTIME_HOME="/app/third_party"
+# --- Download and extract ONNX Runtime for linux-x64 (AMD64) ---
+# Use a specific version. Ensure this matches what C++ code expects if tightly coupled.
+ENV ONNX_RUNTIME_VERSION="1.17.1" 
+ENV ONNX_RUNTIME_TARBALL="onnxruntime-linux-x64-${ONNX_RUNTIME_VERSION}.tgz"
+ENV ONNX_RUNTIME_DOWNLOAD_URL="https://github.com/microsoft/onnxruntime/releases/download/v${ONNX_RUNTIME_VERSION}/${ONNX_RUNTIME_TARBALL}"
 
-# Copy the entire project source code into the container's /app directory.
-# This includes src/, inference_demo.py, CMakeLists.txt, models/, etc.
-# IMPORTANT: This should be done *after* ONNX Runtime is setup, to avoid copying
-# host-specific ONNX Runtime binaries if they were in the local third_party/.
-COPY . /app
+# Create the directory for third-party libraries within the build stage
+RUN mkdir -p /app/third_party/lib && \
+    wget -O /tmp/${ONNX_RUNTIME_TARBALL} ${ONNX_RUNTIME_DOWNLOAD_URL} && \
+    tar -xzf /tmp/${ONNX_RUNTIME_TARBALL} -C /tmp/ && \
+    cp /tmp/onnxruntime-linux-x64-${ONNX_RUNTIME_VERSION}/lib/libonnxruntime.so /app/third_party/lib/ && \
+    rm -rf /tmp/${ONNX_RUNTIME_TARBALL} /tmp/onnxruntime-linux-x64-${ONNX_RUNTIME_VERSION}
 
-# --- Build the C++ Python module (more verbose for debugging) ---
-RUN mkdir -p build
+# Configure and build the C++ project
+RUN mkdir -p build && \
+    cmake -S . -B build -DPYBIND11_PATH=/pybind11 -DCMAKE_BUILD_TYPE=Release && \
+    cmake --build build -j$(nproc) -v
 
-# Configure CMake. We separate this step to see its specific output.
-# Adding -DCMAKE_VERBOSE_MAKEFILE=ON for more detailed build commands.
-RUN cmake -B build -S . -DCMAKE_VERBOSE_MAKEFILE=ON
+# Stage 2: Final image for deployment
+FROM ubuntu:22.04
 
-# Build the project. Separating this step also helps.
-# Adding --verbose for even more detailed compiler output.
-RUN cmake --build build -j$(nproc) -v
+# Set environment variables for Python
+ENV PYTHONUNBUFFERED=1 \
+    PYTHONPATH=/app/src/python:/app # Add /app to PYTHONPATH for direct imports if needed, though cpp_inference is copied to /app/
 
-# Set the PYTHONPATH environment variable.
-# This tells Python where to find the compiled `cpp_inference.so` module.
-ENV PYTHONPATH=/app/build:${PYTHONPATH}
+# Install Python runtime dependencies (essential for the Flask app and OpenCV)
+RUN apt-get update && \
+    apt-get install -y --no-install-recommends \
+        python3 \
+        python3-pip \
+        libopencv-dev \
+        # Add any other system-level runtime dependencies the C++ module relies on
+    && rm -rf /var/lib/apt/lists/*
 
+# Set working directory inside the container
+WORKDIR /app
 
-# Install Python packages from requirements.txt
-# Copy requirements.txt first to leverage Docker's build cache
-COPY requirements.txt .
+# Copy compiled C++ artifacts and Python code from the builder stage
+COPY --from=builder /app/build/cpp_inference.cpython-310-x86_64-linux-gnu.so /app/
+COPY --from=builder /app/third_party/lib/libonnxruntime.so /app/third_party/lib/
+
+# Copy the Flask application and HTML templates
+COPY app/ /app/app/ # Copies everything from local 'app/' to container '/app/app/'
+
+# Copy your ONNX model
+COPY models/nvidia_pilotnet.onnx /app/ 
+
+# Install Python dependencies from requirements.txt
+COPY requirements.txt /app/
 RUN pip3 install --no-cache-dir -r requirements.txt
 
-# Command to run when the container starts.
-# This will execute the Python inference demo script.
-# You can change this to start a server or other application later.
-CMD ["python3", "inference_demo.py"]
+# Expose the port the Flask/web server listens on
+# Cloud Run expects the app to listen on the PORT env var (defaults to 8080)
+EXPOSE 8080
+
+# Command to run Flask application using Gunicorn
+# 'app.main:app' refers to 'app' directory, 'main.py' module, and 'app' Flask instance
+CMD ["gunicorn", "--bind", "0.0.0.0:$PORT", "app.main:app"]
