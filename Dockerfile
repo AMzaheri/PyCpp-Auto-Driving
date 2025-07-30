@@ -3,9 +3,12 @@ FROM ubuntu:22.04 AS builder
 
 # Set environment variables for non-interactive installation
 ENV DEBIAN_FRONTEND=noninteractive
+ENV TZ=Europe/London
 
 # Update and install build dependencies
-RUN apt-get update && \
+RUN sed -i 's|http://archive.ubuntu.com/ubuntu/|http://uk.archive.ubuntu.com/ubuntu/|g' /etc/apt/sources.list && \
+    sed -i 's|http://security.ubuntu.com/ubuntu/|http://uk.archive.ubuntu.com/ubuntu/|g' /etc/apt/sources.list && \
+    apt-get update && \
     apt-get install -y --no-install-recommends \
         build-essential \
         cmake \
@@ -16,10 +19,11 @@ RUN apt-get update && \
         python3-pip \
         libopencv-dev \
         libboost-all-dev \
+        ninja-build \     
     && rm -rf /var/lib/apt/lists/*
 
 # Install pybind11
-WORKDIR /
+WORKDIR /app
 RUN git clone https://github.com/pybind/pybind11.git && \
     cd pybind11 && \
     pip install .
@@ -28,7 +32,6 @@ RUN git clone https://github.com/pybind/pybind11.git && \
 WORKDIR /app
 COPY src /app/src
 COPY CMakeLists.txt /app/
-COPY third_party/include /app/third_party/include
 
 # --- Download and extract ONNX Runtime for linux-x64 (AMD64) ---
 # Use a specific version. Ensure this matches what C++ code expects if tightly coupled.
@@ -41,28 +44,45 @@ RUN mkdir -p /app/third_party/lib && \
     wget -O /tmp/${ONNX_RUNTIME_TARBALL} ${ONNX_RUNTIME_DOWNLOAD_URL} && \
     tar -xzf /tmp/${ONNX_RUNTIME_TARBALL} -C /tmp/ && \
     cp /tmp/onnxruntime-linux-x64-${ONNX_RUNTIME_VERSION}/lib/libonnxruntime.so /app/third_party/lib/ && \
+    cp -r /tmp/onnxruntime-linux-x64-${ONNX_RUNTIME_VERSION}/include /app/third_party/include/ && \
     rm -rf /tmp/${ONNX_RUNTIME_TARBALL} /tmp/onnxruntime-linux-x64-${ONNX_RUNTIME_VERSION}
 
 # Configure and build the C++ project
 RUN mkdir -p build && \
-    cmake -S . -B build -DPYBIND11_PATH=/pybind11 -DCMAKE_BUILD_TYPE=Release && \
-    cmake --build build -j$(nproc) -v
+    cmake -S . -B build -DPYBIND11_PATH=/app/pybind11 \
+    -DCMAKE_BUILD_TYPE=Release \
+    -DCMAKE_INTERPROCEDURAL_OPTIMIZATION=OFF && \
+    cmake --build build -j4 -v
 
 # Stage 2: Final image for deployment
-FROM ubuntu:22.04
+FROM ubuntu:22.04 AS final
 
-# Set environment variables for Python
+# --- START OF CHANGES FOR FINAL STAGE ---
+
+# Set environment variables for non-interactive installation and timezone
+ENV DEBIAN_FRONTEND=noninteractive
+ENV TZ=Europe/London 
+
+# Set Python environment variables (uncommented, good practice for Python apps in Docker)
 ENV PYTHONUNBUFFERED=1 \
-    PYTHONPATH=/app/src/python:/app # Add /app to PYTHONPATH for direct imports if needed, though cpp_inference is copied to /app/
+    PYTHONPATH=/app/src/python:/app
 
 # Install Python runtime dependencies (essential for the Flask app and OpenCV)
-RUN apt-get update && \
+# Included mirror changes and additional runtime libraries
+RUN sed -i 's|http://archive.ubuntu.com/ubuntu/|http://uk.archive.ubuntu.com/ubuntu/|g' /etc/apt/sources.list && \
+    sed -i 's|http://security.ubuntu.com/ubuntu/|http://uk.archive.ubuntu.com/ubuntu/|g' /etc/apt/sources.list && \
+    apt-get update -y && \
     apt-get install -y --no-install-recommends \
         python3 \
         python3-pip \
         libopencv-dev \
-        # Add any other system-level runtime dependencies the C++ module relies on
-    && rm -rf /var/lib/apt/lists/*
+        libgomp1 \
+        libstdc++6 \
+    && apt-get autoremove -y && \
+    apt-get clean && \
+    rm -rf /var/lib/apt/lists/* /tmp/* /var/tmp/*
+
+# --- END OF CHANGES FOR FINAL STAGE ---
 
 # Set working directory inside the container
 WORKDIR /app
@@ -72,7 +92,7 @@ COPY --from=builder /app/build/cpp_inference.cpython-310-x86_64-linux-gnu.so /ap
 COPY --from=builder /app/third_party/lib/libonnxruntime.so /app/third_party/lib/
 
 # Copy the Flask application and HTML templates
-COPY app/ /app/app/ # Copies everything from local 'app/' to container '/app/app/'
+COPY app/ /app/app/
 
 # Copy your ONNX model
 COPY models/nvidia_pilotnet.onnx /app/ 
